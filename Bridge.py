@@ -112,6 +112,7 @@ class OnePointOptimizer:
         self._state = AdamState.init_like(np.zeros(self.N.dim, float))
         self._did_bootstrap = False
         self._pending: Optional[Dict[str, Array]] = None  # {"y_old","y_new","g_old"}
+        self._env_hash: Optional[object] = None  # environment marker for h tuning
 
         # Cache for adjoint pullback
         self._W = getattr(self.N, "_W", np.ones(self.N.dim, float)).astype(float).reshape(-1)
@@ -251,8 +252,13 @@ class OnePointOptimizer:
 
     # -------------------------------- step ------------------------------------
 
-    def step(self, y: Array, logger: Optional[Callable[[Dict], None]] = None
-             ) -> Tuple[Array, float, Dict]:
+    def step(
+        self,
+        y: Array,
+        logger: Optional[Callable[[Dict], None]] = None,
+        *,
+        env_hash: Optional[object] = None,
+    ) -> Tuple[Array, float, Dict]:
         """
         Run one bridged step in y-space.
 
@@ -265,6 +271,15 @@ class OnePointOptimizer:
         y = np.asarray(y, float).reshape(-1)
         if y.size != self.N.dim:
             raise ValueError(f"y dimension {y.size} != normalizer.dim {self.N.dim}")
+
+        # Re-tune central difference step if environment changed
+        if env_hash is not None and env_hash != self._env_hash:
+            if self.g2p is not None:
+                try:
+                    self.g2p.tune_eps(self._f_y, y, rng=self.rng)
+                except Exception:
+                    pass
+            self._env_hash = env_hash
 
         # (1) Compose A from accepted history
         if self.cfg.use_precond:

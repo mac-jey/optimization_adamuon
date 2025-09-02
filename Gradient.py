@@ -1,7 +1,7 @@
 # Gradient.py
 from __future__ import annotations
 import numpy as np
-from typing import Optional, Tuple, Dict
+from typing import Optional, Tuple, Dict, Callable
 
 Array = np.ndarray
 
@@ -275,6 +275,74 @@ class Central2P(BaseGradientSource):
 
     def __init__(self, K: int = 2, eps_rel: float = 1e-4, eps_abs: float = 0.0):
         super().__init__(K=K, eps_rel=eps_rel, eps_abs=eps_abs, antithetic=False)
+
+    # --- new: automatic ε tuning --------------------------------------------
+    def tune_eps(
+        self,
+        f_y: Callable[[Array], float],
+        y: Array,
+        *,
+        rng: Optional[np.random.Generator] = None,
+        K_probe: int = 8,
+        h_min: float = 1e-6,
+        h_max: float = 1e-1,
+        num: int = 10,
+    ) -> float:
+        """Pilot sweep to find a stable finite-difference step.
+
+        The method probes a logarithmic range ``[h_min, h_max]`` and selects the
+        ``h`` where the norm of ``g(h) - g(h/2)`` is minimized.  This crude
+        criterion identifies the largest step still inside the second-order
+        regime and avoids the noise floor at very small ``h``.
+
+        Parameters
+        ----------
+        f_y, y : callable and point where the gradient is evaluated
+        rng : optional ``Generator`` for probing directions
+        K_probe : number of random directions used in the pilot sweep
+        h_min, h_max : bounds of the logarithmic sweep
+        num : number of ``h`` candidates to test
+
+        Returns
+        -------
+        float
+            Chosen absolute step size ``h*`` which is stored in ``eps_abs`` and
+            used in subsequent calls.
+        """
+        y = _as_row_vec(y)
+        d = y.size
+        if rng is None:
+            rng = np.random.default_rng()
+
+        U = _gen_directions(d, max(1, min(K_probe, d)), rng, antithetic=False)
+        U = _norm_cols(U)
+
+        hs = np.logspace(np.log10(h_min), np.log10(h_max), num=num)
+        best_h = hs[0]
+        best_err = float("inf")
+
+        def _g_at(h: float) -> Array:
+            s = np.empty(U.shape[1], float)
+            for k in range(U.shape[1]):
+                yp = y + h * U[:, k]
+                ym = y - h * U[:, k]
+                s[k] = (float(f_y(yp)) - float(f_y(ym))) / (2.0 * h)
+            g, _, _ = _ls_solve(U, s)
+            return g
+
+        prev = None
+        for h in hs:
+            g = _g_at(h)
+            if prev is not None:
+                err = np.linalg.norm(g - prev)
+                if err < best_err:
+                    best_err = err
+                    best_h = h
+            prev = g
+
+        self.eps_abs = float(best_h)
+        self.eps_rel = 0.0
+        return self.eps_abs
 
     def grad(self, f_y, y: Array, A: Optional[Array] = None, rng: Optional[np.random.Generator] = None):
         y = _as_row_vec(y)
