@@ -15,3 +15,5 @@
 - The central difference step-size tuner currently searches a fixed logarithmic
   grid.  Adapting the sweep range or using noise estimates could yield more
   reliable step selection in very noisy objectives.
+
+- Added `test_notebook.ipynb` demonstrating Normalizer roundtrip, central difference gradient check, and a simple optimization run. More comprehensive tests and automated execution via a proper Jupyter kernel remain future work.
