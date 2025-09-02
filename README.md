@@ -43,6 +43,9 @@ Implements finite-difference gradient approximations in `y` space.
   `g ≈ (f(y + εu) - f(y)) / ε`
 - **Central2P** – symmetric evaluation improving accuracy:
   `g ≈ (f(y + εu) - f(y - εu)) / (2ε)`
+  and now automatically tunes the finite-difference step by probing a
+  logarithmic range and selecting the largest step that still exhibits the
+  expected second-order convergence.
 
 Directions `u_k` are generated to be well conditioned using QR and
 Gram–Schmidt procedures.  The sampled directional derivatives are solved in a

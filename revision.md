@@ -12,3 +12,6 @@
   stochastic acceptance criteria could improve robustness.
 - Adapters for PyTorch and SciPy could live in the bridge layer so the same
   statistical tooling for Stepper/Memory serves both CPU and GPU backends.
+- The central difference step-size tuner currently searches a fixed logarithmic
+  grid.  Adapting the sweep range or using noise estimates could yield more
+  reliable step selection in very noisy objectives.
