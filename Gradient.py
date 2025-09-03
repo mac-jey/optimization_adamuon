@@ -69,23 +69,23 @@ def _gen_directions(d: int, K: int, rng: np.random.Generator, antithetic: bool) 
 
     if antithetic and K >= 2:
         half = K // 2
-        # 1) QR 기반 기저
+        # 1) QR-based basis
         qcols = max(1, min(half, d))
         G = rng.standard_normal((d, qcols))
         Q, _ = np.linalg.qr(G, mode='reduced')  # d x q, q<=min(d,half)
         basis = Q.copy()
-        # 2) half까지 그람–슈미트 재직교화로 채우기
+        # 2) Fill up to 'half' with Gram–Schmidt re-orthogonalized vectors
         while basis.shape[1] < half:
             v = rng.standard_normal(d)
             v = v / np.linalg.norm(v)
             v_ortho = _gram_schmidt(v, basis)
             if v_ortho is None:
-                continue  # 너무 가까우면 재시도
+                continue  # retry if too close to the span
             basis = np.concatenate([basis, v_ortho.reshape(d, 1)], axis=1)
         U_base = basis[:, :half]                        # d x half
-        U = np.concatenate([U_base, -U_base], axis=1)   # ± 페어
+        U = np.concatenate([U_base, -U_base], axis=1)   # ± pairs
         if U.shape[1] < K:
-            # odd K: 나머지 1열도 재직교화하여 추가
+            # odd K: add the remaining one column via re-orthogonalization
             while U.shape[1] < K:
                 v = rng.standard_normal(d)
                 v = v / np.linalg.norm(v)
@@ -101,7 +101,7 @@ def _gen_directions(d: int, K: int, rng: np.random.Generator, antithetic: bool) 
         Q, _ = np.linalg.qr(G, mode='reduced')  # d x K
         return Q
 
-    # K > d (정규직교 d열 + 그람–슈미트로 나머지 근직교 열)
+    # K > d (d orthonormal columns + additional near-orthogonal via Gram–Schmidt)
     G = rng.standard_normal((d, d))
     Q, _ = np.linalg.qr(G, mode='reduced')      # d x d
     U = Q.copy()
