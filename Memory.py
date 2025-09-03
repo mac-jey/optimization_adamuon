@@ -17,7 +17,7 @@ class MemoryMetric:
     Design
     ------
     - EMA baseline with half-life via beta in (0,1).
-      (원하면 t_half로부터 beta = 2**(-1/t_half) 로 설정)
+      (If desired, set beta from a half-life t_half via beta = 2**(-1/t_half).)
     - Ratio r = |Δf| / EMA_hat  →  x = r/(1+r) ∈ (0,1).
     - Final magnitude M_t = σ( 4·(x-0.5) ) ∈ (0,1), slope at x=0.5 equals 1.
 
@@ -26,7 +26,7 @@ class MemoryMetric:
     - M_t ∈ [0,1), finite.
     - First call uses Δf=0 → M_1 = 0 (safe warm-up).
     """
-    beta: float = 0.9          # half-life 기반으로 설정 권장
+    beta: float = 0.9          # recommended to set via half-life
     min_ema: float = 1e-12
     debias: bool = True
 
@@ -47,7 +47,7 @@ class MemoryMetric:
         return beta * prev_ema + (1.0 - beta) * u
 
     def _ema_hat(self) -> float:
-        """Bias-corrected EMA (Adam-style) if debias else raw EMA."""
+        """Bias-corrected EMA (Adam-style) if debias=True, else raw EMA."""
         if not self.debias:
             return self._ema
         corr = 1.0 - (self.beta ** max(1, self._t))  # t>=1 after first update
@@ -76,7 +76,7 @@ class MemoryMetric:
         self._t += 1
         self._prev_f = cur_f
 
-        # First call warm-up
+        # First-call warm-up
         if self._t == 1:
             return 0.0
 
@@ -96,18 +96,17 @@ class MemoryEvent:
     """
     Event scheduler and survival tracking.
 
-    Policy (calm-gated, intuitive τ)
-    --------------------------------
+    Policy (calm-gated, with intuitive τ)
+    -------------------------------------
     - Survival (per-accepted-step decay):  s_t = exp(-α · M_t),  S_t = exp(-∑ α·M_t).
-    - "Opportunities" accrue whenever cumulative hazard H crosses
-      the positive barrier ΔH = ln(1 + τ). (τ ≥ 0 ⇒ sign confusion 없음)
-    - BUT we only *fire* one opportunity on a calm step:
-        gate: M_t <= m_gate  (default 0.5)
-      Otherwise the opportunity is queued (pending) and released later, one per calm step.
+    - "Opportunities" accrue whenever cumulative hazard H crosses the positive
+      barrier ΔH = ln(1 + τ). (τ ≥ 0 ensures there is no sign ambiguity.)
+    - Only one opportunity fires on a calm step (gate: M_t <= m_gate, default 0.5).
+      Otherwise it is queued and released later, one per calm step.
 
     Parameters
     ----------
-    alpha : >0, overall timescale (faster decay & faster opportunity accrual)
+    alpha : >0, overall timescale (faster decay and faster opportunity accrual)
     tau   : ≥0, resolution (larger ⇒ bigger barrier ln(1+τ) ⇒ rarer opportunities)
     m_gate: in (0,1), calmness gate threshold on M_t (default 0.5)
 

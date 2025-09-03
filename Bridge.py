@@ -31,14 +31,14 @@ class BridgeConfig:
 
     # --- NEW: Adjoint pullback policy ---
     # 'diag'   : safe baseline (width-only), never uses mixing
-    # 'full'   : always J^T g_x (if available); squash 경계/ill-cond 시 내부 캡 적용
-    # 'hybrid' : (default) cond/경계 체크로 full↔diag 자동 전환
+    # 'full'   : always J^T g_x (if available); internally clamps near squash edges or when ill-conditioned
+    # 'hybrid' : (default) auto-switch full↔diag based on conditioning and boundary safety
     jac_pullback: str = "hybrid"               # 'diag' | 'full' | 'hybrid'
-    jac_cond_cap: float = 1e3                  # 허용 최대 cond(J)
-    jac_squash_eps: float = 1e-6               # squash 축 y∈[eps,1-eps]로 클립
-    jac_sigma_lo: float = 1e-3                 # SVD singular value 하한(풀백 클립)
-    jac_sigma_hi: float = 1e3                  # SVD singular value 상한(풀백 클립)
-    jac_use_svd_clip: bool = False             # True면 J를 SVD로 클립 후 풀백
+    jac_cond_cap: float = 1e3                  # maximum allowed cond(J)
+    jac_squash_eps: float = 1e-6               # clip squash axes to y∈[eps, 1-eps]
+    jac_sigma_lo: float = 1e-3                 # lower bound for SVD singular values (pullback clipping)
+    jac_sigma_hi: float = 1e3                  # upper bound for SVD singular values (pullback clipping)
+    jac_use_svd_clip: bool = False             # if True, clip J via SVD before pullback
 
 
 # ----------------------------- The Bridge ------------------------------------
@@ -53,7 +53,7 @@ class OnePointOptimizer:
     - adjoint in y-space:
         * 'diag'   : adj_y(y) = (grad_x(decode(y))) ⊙ width
         * 'full'   : adj_y(y) = J(y)^T · grad_x(decode(y))  (J=∂x/∂y)
-        * 'hybrid' : cond/경계 안정성 체크로 full↔diag 자동 선택
+        * 'hybrid' : automatically switches full↔diag based on conditioning and boundary safety
     - Exactly one bootstrap step with Forward-1P, then always Central-2P
     - Preconditioner ON/OFF toggle only
     - RNG/seed (reproducibility)
